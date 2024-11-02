@@ -1,19 +1,41 @@
-import { Duration, Stack, StackProps } from 'aws-cdk-lib';
-import * as sns from 'aws-cdk-lib/aws-sns';
-import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
-import * as sqs from 'aws-cdk-lib/aws-sqs';
-import { Construct } from 'constructs';
+import { Duration, Stack, StackProps, CfnOutput } from "aws-cdk-lib";
+import { Construct } from "constructs";
+// import lambda construct
+import * as lambda from "aws-cdk-lib/aws-lambda";
+// import api gateway construct
+import * as apigateway from "aws-cdk-lib/aws-apigateway";
 
 export class CdkAppStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
-    const queue = new sqs.Queue(this, 'CdkAppQueue', {
-      visibilityTimeout: Duration.seconds(300)
+    // hello world lambda
+    const helloWorldLambda = new lambda.Function(this, "hello-world", {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      code: lambda.Code.fromAsset("lambda"),
+      handler: "hello-world.handler",
+      timeout: Duration.seconds(30),
     });
 
-    const topic = new sns.Topic(this, 'CdkAppTopic');
+    // output the lambda arn to console
+    new CfnOutput(this, "hello-world-lambda-name", {
+      value: helloWorldLambda.functionName,
+    });
 
-    topic.addSubscription(new subs.SqsSubscription(queue));
+    // API Gateway
+    const api = new apigateway.RestApi(this, "hello-world-api", {
+      restApiName: "Hello World API",
+    });
+
+    // output the api endpoint to console
+    new CfnOutput(this, "hello-world-api-endpoint", {
+      value: api.url,
+      description: "API Gateway endpoint URL",
+    });
+
+    // GET /hello route
+    api.root
+      .addResource("hello")
+      .addMethod("GET", new apigateway.LambdaIntegration(helloWorldLambda));
   }
 }
